@@ -31,13 +31,18 @@ func (qb *QueryBuilder) Union(other *QueryBuilder) *QueryBuilder {
 		qb.err = &ErrInvalidQuery{"cannot UNION with no queries"}
 		return qb
 	}
+	otherQuery, err := other.Build()
+	if err != nil {
+		qb.err = err
+		return qb
+	}
 	if qb.query.Union == nil {
 		qb.query.Union = &UnionComponent{
 			UnionKind: Union,
-			Queries:   []*Query{other.query},
+			Queries:   []*Query{otherQuery},
 		}
 	} else {
-		qb.query.Union.Queries = append(qb.query.Union.Queries, other.query)
+		qb.query.Union.Queries = append(qb.query.Union.Queries, otherQuery)
 	}
 	return qb
 }
@@ -50,13 +55,18 @@ func (qb *QueryBuilder) UnionAll(other *QueryBuilder) *QueryBuilder {
 		qb.err = &ErrInvalidQuery{"cannot UNION ALL with nil query"}
 		return qb
 	}
+	otherQuery, err := other.Build()
+	if err != nil {
+		qb.err = err
+		return qb
+	}
 	if qb.query.Union == nil {
 		qb.query.Union = &UnionComponent{
 			UnionKind: UnionAll,
-			Queries:   []*Query{other.query},
+			Queries:   []*Query{otherQuery},
 		}
 	} else {
-		qb.query.Union.Queries = append(qb.query.Union.Queries, other.query)
+		qb.query.Union.Queries = append(qb.query.Union.Queries, otherQuery)
 	}
 	return qb
 }

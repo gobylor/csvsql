@@ -231,19 +231,25 @@ func (e *Engine) projectColumns(q *Query, joinedRows []JoinedRow) ([][]string, e
 		joinedTables = append(joinedTables, join.Table)
 	}
 
+	// Get regular columns
 	expandedColumns, err := q.Select.expandWildcards(e.tables, q.From.Table, joinedTables)
 	if err != nil {
 		return nil, fmt.Errorf("failed to expand wildcards: %w", err)
 	}
 
-	results := [][]string{expandedColumns}
+	headers := expandedColumns
+	for _, customCol := range q.Select.CustomColumns {
+		headers = append(headers, customCol.Name)
+	}
+
+	results := [][]string{headers}
 
 	for _, jr := range joinedRows {
 		if jr.isFiltered {
 			continue
 		}
 
-		resultRow, err := e.createResultRow(expandedColumns, jr)
+		resultRow, err := e.createResultRow(expandedColumns, jr, q)
 		if err != nil {
 			return nil, err
 		}
@@ -253,15 +259,28 @@ func (e *Engine) projectColumns(q *Query, joinedRows []JoinedRow) ([][]string, e
 	return results, nil
 }
 
-func (e *Engine) createResultRow(columns []string, jr JoinedRow) ([]string, error) {
-	resultRow := make([]string, 0, len(columns))
+func (e *Engine) createResultRow(columns []string, jr JoinedRow, q *Query) ([]string, error) {
+	var resultRow []string
 
 	for _, col := range columns {
-		value, err := e.getColumnValue(col, jr, e.tables[jr.mainTable])
+		val, err := e.getColumnValue(col, jr, e.tables[jr.mainTable])
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get column value: %w", err)
 		}
-		resultRow = append(resultRow, value)
+		resultRow = append(resultRow, val)
+	}
+
+	if len(q.Select.CustomColumns) > 0 {
+		combinedRow := e.createCombinedRow(jr)
+		tableData := e.createTableDataMap()
+
+		for _, customCol := range q.Select.CustomColumns {
+			val, err := customCol.Func(combinedRow, tableData)
+			if err != nil {
+				return nil, fmt.Errorf("failed to compute custom column %s: %w", customCol.Name, err)
+			}
+			resultRow = append(resultRow, val)
+		}
 	}
 
 	return resultRow, nil

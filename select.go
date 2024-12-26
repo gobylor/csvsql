@@ -6,7 +6,13 @@ import (
 )
 
 type SelectComponent struct {
-	Columns []string
+	Columns       []string
+	CustomColumns []CustomSelectField
+}
+
+type CustomSelectField struct {
+	Name string
+	Func func(row map[string][]string, tables map[string]*Table) (string, error)
 }
 
 func (s *SelectComponent) Type() string {
@@ -14,7 +20,7 @@ func (s *SelectComponent) Type() string {
 }
 
 func (s *SelectComponent) Validate() error {
-	if len(s.Columns) == 0 {
+	if len(s.Columns) == 0 && len(s.CustomColumns) == 0 {
 		return &ErrInvalidQuery{"SELECT must specify at least one column"}
 	}
 	return nil
@@ -24,9 +30,24 @@ func (qb *QueryBuilder) Select(columns ...string) *QueryBuilder {
 	if qb.err != nil {
 		return qb
 	}
-	qb.query.Select = &SelectComponent{
-		Columns: columns,
+	if qb.query.Select == nil {
+		qb.query.Select = &SelectComponent{}
 	}
+	qb.query.Select.Columns = append(qb.query.Select.Columns, columns...)
+	return qb
+}
+
+func (qb *QueryBuilder) SelectCustom(name string, fn func(row map[string][]string, tables map[string]*Table) (string, error)) *QueryBuilder {
+	if qb.err != nil {
+		return qb
+	}
+	if qb.query.Select == nil {
+		qb.query.Select = &SelectComponent{}
+	}
+	qb.query.Select.CustomColumns = append(qb.query.Select.CustomColumns, CustomSelectField{
+		Name: name,
+		Func: fn,
+	})
 	return qb
 }
 

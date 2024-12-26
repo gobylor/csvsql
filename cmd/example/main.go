@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,6 +46,7 @@ func runExamples(eng *csvsql.Engine) {
 		{"Multiple conditions (AND)", example4},
 		{"UNION operation", example5},
 		{"Wildcard SELECT", example6},
+		{"Custom SELECT fields", example7},
 	}
 
 	for _, ex := range examples {
@@ -149,6 +151,36 @@ func example6() (*csvsql.Query, error) {
 		From("users").
 		InnerJoin("orders").
 		On("users", "id", "=", "orders", "user_id").
+		Build()
+}
+
+// Example 7: Custom SELECT fields
+func example7() (*csvsql.Query, error) {
+	return csvsql.NewQuery().
+		Select("name", "age").
+		SelectCustom("age_category", func(row map[string][]string, tables map[string]*csvsql.Table) (string, error) {
+			userRow := row["users"]
+			ageIdx, err := tables["users"].GetColumnIndex("age")
+			if err != nil {
+				return "", err
+			}
+
+			age := userRow[ageIdx]
+			ageInt, err := strconv.Atoi(age)
+			if err != nil {
+				return "", err
+			}
+
+			switch {
+			case ageInt < 25:
+				return "Young", nil
+			case ageInt < 50:
+				return "Middle-aged", nil
+			default:
+				return "Senior", nil
+			}
+		}).
+		From("users").
 		Build()
 }
 

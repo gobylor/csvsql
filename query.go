@@ -8,8 +8,8 @@ type QueryComponent interface {
 type Query struct {
 	Select *SelectComponent
 	From   *FromComponent
-	Where  *WhereComponent
 	Joins  []*JoinComponent
+	Where  *WhereComponent
 	Union  *UnionComponent
 }
 
