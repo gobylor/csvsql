@@ -1,0 +1,11 @@
+id,name,age,email,city,registration_date
+1,John Smith,28,john.smith@gmail.com,New York,2023-01-15
+2,Emma Wilson,35,emma.w@yahoo.com,Los Angeles,2023-02-20
+3,Michael Chen,22,m.chen@gmail.com,San Francisco,2023-03-10
+4,Sarah Brown,42,sarah.brown@outlook.com,Chicago,2023-01-05
+5,David Lee,19,david.lee@gmail.com,Seattle,2023-04-25
+6,Lisa Wang,31,lisa.wang@hotmail.com,Boston,2023-02-28
+7,James Johnson,45,james.j@gmail.com,Miami,2023-03-15
+8,Maria Garcia,26,maria.g@yahoo.com,Houston,2023-05-01
+9,Robert Kim,33,robert.kim@gmail.com,Portland,2023-04-12
+10,Anna White,29,anna.white@outlook.com,Denver,2023-01-30 
