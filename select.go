@@ -20,9 +20,6 @@ func (s *SelectComponent) Type() string {
 }
 
 func (s *SelectComponent) Validate() error {
-	if len(s.Columns) == 0 && len(s.CustomColumns) == 0 {
-		return &ErrInvalidQuery{"SELECT must specify at least one column"}
-	}
 	return nil
 }
 
@@ -52,7 +49,7 @@ func (qb *QueryBuilder) SelectCustom(name string, fn func(row map[string][]strin
 }
 
 func (s *SelectComponent) expandWildcards(tables map[string]*Table, mainTable string, joinedTables []string) ([]string, error) {
-	if len(s.Columns) == 0 {
+	if len(s.Columns) == 0 && len(s.CustomColumns) == 0 {
 		return nil, &ErrInvalidQuery{"SELECT must specify at least one column"}
 	}
 

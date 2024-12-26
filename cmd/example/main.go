@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -47,6 +46,7 @@ func runExamples(eng *csvsql.Engine) {
 		{"UNION operation", example5},
 		{"Wildcard SELECT", example6},
 		{"Custom SELECT fields", example7},
+		{"Custom Join Condition", example8},
 	}
 
 	for _, ex := range examples {
@@ -82,20 +82,12 @@ func example2() (*csvsql.Query, error) {
 		Select("name", "email", "registration_date").
 		From("users").
 		WhereFunc(func(row map[string][]string, tables map[string]*csvsql.Table) (bool, error) {
-			table := tables["users"]
-			emailIdx, err := table.GetColumnIndex("email")
-			if err != nil {
-				return false, err
-			}
-			dateIdx, err := table.GetColumnIndex("registration_date")
-			if err != nil {
-				return false, err
-			}
+			users := csvsql.GetRow(row, tables, "users")
 
-			// Check if user has Gmail and registered in first quarter
-			userRow := row["users"]
-			isGmail := strings.Contains(userRow[emailIdx], "@gmail.com")
-			regDate, _ := time.Parse("2006-01-02", userRow[dateIdx])
+			email := users.Get("email").Must()
+			regDate := users.Get("registration_date").MustDate()
+
+			isGmail := strings.Contains(email, "@gmail.com")
 			isQ1 := regDate.Before(time.Date(2023, 4, 1, 0, 0, 0, 0, time.UTC))
 
 			return isGmail && isQ1, nil
@@ -159,28 +151,39 @@ func example7() (*csvsql.Query, error) {
 	return csvsql.NewQuery().
 		Select("name", "age").
 		SelectCustom("age_category", func(row map[string][]string, tables map[string]*csvsql.Table) (string, error) {
-			userRow := row["users"]
-			ageIdx, err := tables["users"].GetColumnIndex("age")
-			if err != nil {
-				return "", err
-			}
-
-			age := userRow[ageIdx]
-			ageInt, err := strconv.Atoi(age)
-			if err != nil {
-				return "", err
-			}
+			age := csvsql.GetRow(row, tables, "users").Get("age").MustInt()
 
 			switch {
-			case ageInt < 25:
+			case age < 25:
 				return "Young", nil
-			case ageInt < 50:
+			case age < 50:
 				return "Middle-aged", nil
 			default:
 				return "Senior", nil
 			}
 		}).
 		From("users").
+		Build()
+}
+
+// Example 8: Custom Join Condition
+func example8() (*csvsql.Query, error) {
+	return csvsql.NewQuery().
+		Select("users.name", "orders.product", "orders.amount").
+		From("users").
+		InnerJoin("orders").
+		OnFunc(func(row map[string][]string, tables map[string]*csvsql.Table) (bool, error) {
+			users := csvsql.GetRow(row, tables, "users")
+			orders := csvsql.GetRow(row, tables, "orders")
+
+			userId := users.Get("id").Must()
+			orderUserId := orders.Get("user_id").Must()
+			orderAmount := orders.Get("amount").MustFloat()
+
+			isMatched := userId == orderUserId
+
+			return isMatched && (orderAmount > 100), nil
+		}).
 		Build()
 }
 

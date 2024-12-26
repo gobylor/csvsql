@@ -1,5 +1,33 @@
 package csvsql
 
+func Where(column, operator, value string) *QueryBuilder {
+	condition, err := NewSimpleCondition(column, operator, value)
+	if err != nil {
+		return nil
+	}
+	return &QueryBuilder{
+		query: &Query{
+			Where: &WhereComponent{
+				Condition: condition,
+			},
+		},
+	}
+}
+
+func WhereFunc(fn func(row map[string][]string, tables map[string]*Table) (bool, error)) *QueryBuilder {
+	if fn == nil {
+		return nil
+	}
+	customCondition := CustomCondition(fn)
+	return &QueryBuilder{
+		query: &Query{
+			Where: &WhereComponent{
+				Condition: &customCondition,
+			},
+		},
+	}
+}
+
 type WhereComponent struct {
 	Condition Condition
 }

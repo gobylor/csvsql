@@ -1,6 +1,7 @@
 package csvsql
 
 import (
+	"encoding/csv"
 	"fmt"
 	"os"
 	"strings"
@@ -471,4 +472,28 @@ func createRowKey(row []string) string {
 		key.WriteString(strings.TrimSpace(val))
 	}
 	return key.String()
+}
+
+func (e *Engine) ExportToCSV(q *Query, filepath string) error {
+	results, err := e.ExecuteQuery(q)
+	if err != nil {
+		return fmt.Errorf("failed to execute query: %w", err)
+	}
+
+	file, err := os.Create(filepath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	for _, row := range results {
+		if err := writer.Write(row); err != nil {
+			return fmt.Errorf("failed to write row: %w", err)
+		}
+	}
+
+	return nil
 }

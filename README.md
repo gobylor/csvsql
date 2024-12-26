@@ -14,11 +14,18 @@ CSVSQL is a powerful Go library that enables SQL-like querying capabilities over
   - Excel (XLSX) files
 - 🔄 **Rich Query Operations**: 
   - JOIN operations (INNER, LEFT, RIGHT)
+    - Standard column equality joins
+    - Custom join conditions with `OnFunc`
   - WHERE clauses with multiple conditions
+    - Standard comparison operators
+    - Custom filtering with `WhereFunc`
+  - SELECT operations
+    - Standard column selection
+    - Custom computed columns with `SelectCustom`
   - UNION and UNION ALL
   - Column and table aliasing
   - Wildcard selects (`SELECT *` and `table.*`)
-  - Custom column computation
+  - Export query results to CSV
 - 🎯 **Advanced Filtering**: 
   - Support for custom filtering functions
   - Multiple comparison operators
@@ -63,6 +70,12 @@ query, _ := csvsql.NewQuery().
 results, _ := eng.ExecuteQuery(query)
 for i, row := range results {
     fmt.Println(row)
+}
+
+// Export results to CSV
+err := eng.ExportToCSV(query, "output.csv")
+if err != nil {
+    log.Fatal(err)
 }
 ```
 
@@ -114,11 +127,11 @@ query, _ = csvsql.NewQuery().
 
 ### Custom Column Computation
 ```go
+// Basic custom column computation
 query, _ := csvsql.NewQuery().
     Select("name", "age").
-    SelectCustom("age_category", func(row map[string][]string, tables map[string]*Table) (string, error) {
-        ageIdx, _ := tables["users"].GetColumnIndex("age")
-        age, _ := strconv.Atoi(row["users"][ageIdx])
+    SelectCustom("age_category", func(row map[string][]string, tables map[string]*csvsql.Table) (string, error) {
+        age := csvsql.GetRow(row, tables, "users").Get("age").MustInt()
         
         switch {
         case age < 25:
@@ -131,7 +144,66 @@ query, _ := csvsql.NewQuery().
     }).
     From("users").
     Build()
+
+// Complex computed columns
+query, _ = csvsql.NewQuery().
+    Select("users.name").
+    SelectCustom("total_spending", func(row map[string][]string, tables map[string]*csvsql.Table) (string, error) {
+        orders := csvsql.GetRow(row, tables, "orders")
+        amount := orders.Get("amount").MustFloat()
+        tax := orders.Get("tax").MustFloat()
+        
+        return fmt.Sprintf("%.2f", amount + tax), nil
+    }).
+    From("users").
+    InnerJoin("orders").
+    On("users", "id", "=", "orders", "user_id").
+    Build()
 ```
+
+### Advanced Filtering with Custom Functions
+```go
+// Basic custom filtering
+query, _ := csvsql.NewQuery().
+    Select("name", "email", "registration_date").
+    From("users").
+    WhereFunc(func(row map[string][]string, tables map[string]*csvsql.Table) (bool, error) {
+        users := csvsql.GetRow(row, tables, "users")
+        email := users.Get("email").Must()
+        return strings.Contains(email, "@gmail.com"), nil
+    }).
+    Build()
+
+// Complex filtering with multiple conditions
+query, _ = csvsql.NewQuery().
+    Select("users.name", "orders.product", "orders.amount").
+    From("users").
+    InnerJoin("orders").
+    On("users", "id", "=", "orders", "user_id").
+    WhereFunc(func(row map[string][]string, tables map[string]*csvsql.Table) (bool, error) {
+        users := csvsql.GetRow(row, tables, "users")
+        orders := csvsql.GetRow(row, tables, "orders")
+        
+        // Complex filtering logic
+        userType := users.Get("user_type").Must()
+        orderAmount := orders.Get("amount").MustFloat()
+        orderDate := orders.Get("order_date").MustDate()
+        
+        isVIP := userType == "VIP"
+        isHighValue := orderAmount > 1000
+        isRecent := orderDate.After(time.Now().AddDate(0, -3, 0))
+        
+        return isVIP && isHighValue && isRecent, nil
+    }).
+    Build()
+```
+
+The custom function features allow you to:
+- Create computed columns with complex logic
+- Implement advanced filtering conditions
+- Access and manipulate data from multiple tables
+- Perform type-safe operations with built-in conversion methods
+- Combine multiple conditions in sophisticated ways
 
 ### Advanced Filtering
 ```go
@@ -154,13 +226,13 @@ query, _ = csvsql.NewQuery().
 query, _ = csvsql.NewQuery().
     Select("name", "email", "registration_date").
     From("users").
-    WhereFunc(func(row map[string][]string, tables map[string]*Table) (bool, error) {
-        userRow := row["users"]
-        emailIdx, _ := tables["users"].GetColumnIndex("email")
-        dateIdx, _ := tables["users"].GetColumnIndex("registration_date")
+    WhereFunc(func(row map[string][]string, tables map[string]*csvsql.Table) (bool, error) {
+        users := csvsql.GetRow(row, tables, "users")
         
-        isGmail := strings.Contains(userRow[emailIdx], "@gmail.com")
-        regDate, _ := time.Parse("2006-01-02", userRow[dateIdx])
+        email := users.Get("email").Must()
+        regDate := users.Get("registration_date").MustDate()
+        
+        isGmail := strings.Contains(email, "@gmail.com")
         isBeforeQ2_2023 := regDate.Before(time.Date(2023, 4, 1, 0, 0, 0, 0, time.UTC))
         
         return isGmail && isBeforeQ2_2023, nil
@@ -191,6 +263,58 @@ query, _ := highValue.Union(lowValue).Build()
 query, _ = highValue.UnionAll(lowValue).Build()
 ```
 
+### Custom Join Conditions
+```go
+// Join with custom condition function
+query, _ := csvsql.NewQuery().
+    Select("users.name", "orders.product", "orders.amount").
+    From("users").
+    InnerJoin("orders").
+    OnFunc(func(row map[string][]string, tables map[string]*csvsql.Table) (bool, error) {
+        users := csvsql.GetRow(row, tables, "users")
+        orders := csvsql.GetRow(row, tables, "orders")
+        
+        // Get values with type conversion using the fluent API
+        userId := users.Get("id").Must()
+        orderUserId := orders.Get("user_id").Must()
+        orderAmount := orders.Get("amount").MustFloat()
+        
+        // Custom join condition: match user_id and amount > 100
+        return userId == orderUserId && orderAmount > 100, nil
+    }).
+    Build()
+
+// Complex join conditions with multiple criteria
+query, _ = csvsql.NewQuery().
+    Select("users.name", "orders.product", "inventory.stock").
+    From("users").
+    InnerJoin("orders").
+    OnFunc(func(row map[string][]string, tables map[string]*csvsql.Table) (bool, error) {
+        users := csvsql.GetRow(row, tables, "users")
+        orders := csvsql.GetRow(row, tables, "orders")
+        
+        // Complex business logic for joining
+        userId := users.Get("id").Must()
+        orderUserId := orders.Get("user_id").Must()
+        orderDate := orders.Get("order_date").MustDate()
+        userType := users.Get("user_type").Must()
+        
+        // Join only VIP users' orders from the last month
+        isVIP := userType == "VIP"
+        isRecentOrder := orderDate.After(time.Now().AddDate(0, -1, 0))
+        
+        return userId == orderUserId && isVIP && isRecentOrder, nil
+    }).
+    Build()
+```
+
+The `OnFunc` feature allows you to:
+- Define complex join conditions with custom logic
+- Access and compare multiple columns from both tables
+- Implement business-specific joining rules
+- Perform type conversions and data validation during joins
+- Combine multiple conditions in a single join criteria
+
 ## 🛠️ Supported Operations
 
 ### Column Selection
@@ -199,6 +323,16 @@ query, _ = highValue.UnionAll(lowValue).Build()
 - Table-specific columns: `Select("users.*")`
 - Mixed selection: `Select("users.*", "orders.amount")`
 - Custom computed columns: `SelectCustom("age_category", computeFunc)`
+
+### Data Access
+- Safe access: `row.Get("column")`
+- String values: `row.Get("column").Must()` or `row.Get("column").String()`
+- Integer values: `row.Get("column").MustInt()` or `row.Get("column").Int()`
+- Float values: `row.Get("column").MustFloat()` or `row.Get("column").Float()`
+- Date values: `row.Get("column").MustDate()` or `row.Get("column").Date()`
+- DateTime values: `row.Get("column").MustDateTime()` or `row.Get("column").DateTime()`
+- Custom time format: `row.Get("column").MustTime(layout)` or `row.Get("column").Time(layout)`
+- Boolean values: `row.Get("column").MustBool()` or `row.Get("column").Bool()`
 
 ### Comparison Operators
 - `=` Equal
