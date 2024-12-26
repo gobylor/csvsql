@@ -9,6 +9,9 @@ CSVSQL is a powerful Go library that enables SQL-like querying capabilities over
 ## 🌟 Features
 
 - 🔍 **SQL-like Query Interface**: Familiar SQL syntax for querying CSV files
+- 📁 **Multiple File Formats**: 
+  - CSV files
+  - Excel (XLSX) files
 - 🔄 **Rich Query Operations**: 
   - JOIN operations (INNER, LEFT, RIGHT)
   - WHERE clauses with multiple conditions
@@ -33,6 +36,22 @@ go get github.com/gobylor/csvsql
 
 ## 🚀 Quick Start
 
+### Basic Setup
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/gobylor/csvsql"
+)
+
+func main() {
+    eng := csvsql.NewEngine()
+    eng.CreateTable("users", "data/users.csv")
+    eng.CreateTable("orders", "data/orders.xlsx")
+}
+```
+
 ### Basic Query
 ```go
 query, _ := csvsql.NewQuery().
@@ -40,6 +59,11 @@ query, _ := csvsql.NewQuery().
     From("users").
     Where("age", ">", "25").
     Build()
+
+results, _ := eng.ExecuteQuery(query)
+for i, row := range results {
+    fmt.Println(row)
+}
 ```
 
 ### Using Wildcards
@@ -53,7 +77,7 @@ query, _ := csvsql.NewQuery().
     Build()
 
 // Select all columns from a specific table
-query, _ := csvsql.NewQuery().
+query, _ = csvsql.NewQuery().
     Select("users.*", "orders.amount").
     From("users").
     InnerJoin("orders").
@@ -72,7 +96,7 @@ query, _ := csvsql.NewQuery().
     Build()
 
 // Left Join
-query, _ := csvsql.NewQuery().
+query, _ = csvsql.NewQuery().
     Select("users.name", "orders.product").
     From("users").
     LeftJoin("orders").
@@ -80,7 +104,7 @@ query, _ := csvsql.NewQuery().
     Build()
 
 // Right Join
-query, _ := csvsql.NewQuery().
+query, _ = csvsql.NewQuery().
     Select("users.name", "orders.product").
     From("users").
     RightJoin("orders").
@@ -111,24 +135,6 @@ query, _ := csvsql.NewQuery().
 
 ### Advanced Filtering
 ```go
-// Custom filtering function
-query, _ := csvsql.NewQuery().
-    Select("name", "email", "registration_date").
-    From("users").
-    WhereFunc(func(row map[string][]string, tables map[string]*Table) (bool, error) {
-        userRow := row["users"]
-        emailIdx, _ := tables["users"].GetColumnIndex("email")
-        dateIdx, _ := tables["users"].GetColumnIndex("registration_date")
-        
-        // Filter Gmail users registered before 2023-04-01
-        isGmail := strings.Contains(userRow[emailIdx], "@gmail.com")
-        regDate, _ := time.Parse("2006-01-02", userRow[dateIdx])
-        isBeforeQ2_2023 := regDate.Before(time.Date(2023, 4, 1, 0, 0, 0, 0, time.UTC))
-        
-        return isGmail && isBeforeQ2_2023, nil
-    }).
-    Build()
-
 // Multiple conditions with AND
 query, _ := csvsql.NewQuery().
     Select("name", "age", "email").
@@ -138,10 +144,27 @@ query, _ := csvsql.NewQuery().
     Build()
 
 // Pattern matching with LIKE
-query, _ := csvsql.NewQuery().
+query, _ = csvsql.NewQuery().
     Select("name", "email").
     From("users").
     Where("email", "LIKE", "%@gmail.com").
+    Build()
+
+// Custom filtering function
+query, _ = csvsql.NewQuery().
+    Select("name", "email", "registration_date").
+    From("users").
+    WhereFunc(func(row map[string][]string, tables map[string]*Table) (bool, error) {
+        userRow := row["users"]
+        emailIdx, _ := tables["users"].GetColumnIndex("email")
+        dateIdx, _ := tables["users"].GetColumnIndex("registration_date")
+        
+        isGmail := strings.Contains(userRow[emailIdx], "@gmail.com")
+        regDate, _ := time.Parse("2006-01-02", userRow[dateIdx])
+        isBeforeQ2_2023 := regDate.Before(time.Date(2023, 4, 1, 0, 0, 0, 0, time.UTC))
+        
+        return isGmail && isBeforeQ2_2023, nil
+    }).
     Build()
 ```
 
@@ -162,10 +185,10 @@ lowValue := csvsql.NewQuery().
     On("users", "id", "=", "orders", "user_id").
     Where("orders.amount", "<", "100")
 
-query := highValue.Union(lowValue).Build()
+query, _ := highValue.Union(lowValue).Build()
 
 // UNION ALL (keeps duplicates)
-query := highValue.UnionAll(lowValue).Build()
+query, _ = highValue.UnionAll(lowValue).Build()
 ```
 
 ## 🛠️ Supported Operations

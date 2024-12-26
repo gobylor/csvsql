@@ -2,6 +2,7 @@ package csvsql
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -15,11 +16,75 @@ func NewEngine() *Engine {
 	}
 }
 
-func (e *Engine) CreateTable(alias, filepath string) error {
+func (e *Engine) CreateTable(alias, filepath string, sheetName ...string) error {
+	if alias == "" {
+		return fmt.Errorf("table alias cannot be empty")
+	}
+
+	if filepath == "" {
+		return fmt.Errorf("filepath cannot be empty")
+	}
+
+	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+		return fmt.Errorf("file does not exist: %s", filepath)
+	}
+
+	if _, exists := e.tables[alias]; exists {
+		return fmt.Errorf("table with alias '%s' already exists", alias)
+	}
+
+	switch {
+	case strings.HasSuffix(strings.ToLower(filepath), ".csv"):
+		return e.createTableFromCsv(alias, filepath)
+	case strings.HasSuffix(strings.ToLower(filepath), ".xlsx"):
+		return e.createTableFromXlsx(alias, filepath, sheetName...)
+	default:
+		return fmt.Errorf("unsupported file format: file must be .csv or .xlsx")
+	}
+}
+
+func (e *Engine) validateHeaders(headers []string, filepath string) error {
+	if len(headers) == 0 {
+		return fmt.Errorf("file '%s' has no headers", filepath)
+	}
+
+	headerSet := make(map[string]bool)
+	for _, header := range headers {
+		if header == "" {
+			return fmt.Errorf("file '%s' contains empty header name", filepath)
+		}
+		if headerSet[header] {
+			return fmt.Errorf("file '%s' contains duplicate header: %s", filepath, header)
+		}
+		headerSet[header] = true
+	}
+	return nil
+}
+
+func (e *Engine) createTableFromCsv(alias, filepath string) error {
 	table, err := NewTableFromCSV(alias, filepath)
 	if err != nil {
-		return fmt.Errorf("failed to create table: %w", err)
+		return fmt.Errorf("failed to create table from CSV: %w", err)
 	}
+
+	if err := e.validateHeaders(table.Headers, filepath); err != nil {
+		return err
+	}
+
+	e.tables[alias] = table
+	return nil
+}
+
+func (e *Engine) createTableFromXlsx(alias, filepath string, sheetName ...string) error {
+	table, err := NewTableFromXlsx(alias, filepath, sheetName...)
+	if err != nil {
+		return fmt.Errorf("failed to create table from XLSX: %w", err)
+	}
+
+	if err := e.validateHeaders(table.Headers, filepath); err != nil {
+		return err
+	}
+
 	e.tables[alias] = table
 	return nil
 }
