@@ -226,14 +226,24 @@ func (e *Engine) createTableDataMap() map[string]*Table {
 }
 
 func (e *Engine) projectColumns(q *Query, joinedRows []JoinedRow) ([][]string, error) {
-	results := [][]string{q.Select.Columns}
+	var joinedTables []string
+	for _, join := range q.Joins {
+		joinedTables = append(joinedTables, join.Table)
+	}
+
+	expandedColumns, err := q.Select.expandWildcards(e.tables, q.From.Table, joinedTables)
+	if err != nil {
+		return nil, fmt.Errorf("failed to expand wildcards: %w", err)
+	}
+
+	results := [][]string{expandedColumns}
 
 	for _, jr := range joinedRows {
 		if jr.isFiltered {
 			continue
 		}
 
-		resultRow, err := e.createResultRow(q, jr)
+		resultRow, err := e.createResultRow(expandedColumns, jr)
 		if err != nil {
 			return nil, err
 		}
@@ -243,10 +253,10 @@ func (e *Engine) projectColumns(q *Query, joinedRows []JoinedRow) ([][]string, e
 	return results, nil
 }
 
-func (e *Engine) createResultRow(q *Query, jr JoinedRow) ([]string, error) {
-	resultRow := make([]string, 0, len(q.Select.Columns))
+func (e *Engine) createResultRow(columns []string, jr JoinedRow) ([]string, error) {
+	resultRow := make([]string, 0, len(columns))
 
-	for _, col := range q.Select.Columns {
+	for _, col := range columns {
 		value, err := e.getColumnValue(col, jr, e.tables[jr.mainTable])
 		if err != nil {
 			return nil, err

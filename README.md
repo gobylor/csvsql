@@ -14,6 +14,7 @@ CSVSQL is a powerful Go library that enables SQL-like querying capabilities over
   - WHERE clauses with multiple conditions
   - UNION and UNION ALL
   - Column and table aliasing
+  - Wildcard selects (`SELECT *` and `table.*`)
 - 🎯 **Advanced Filtering**: Support for custom filtering functions
 - 🔒 **Type Safety**: Type-safe query building with compile-time checks
 - 🚀 **Performance**: Efficient memory usage and optimized operations
@@ -27,62 +28,36 @@ go get github.com/gobylor/csvsql
 
 ## 🚀 Quick Start
 
+### Basic Query
 ```go
-package main
-
-import (
-    "fmt"
-    "github.com/gobylor/csvsql"
-)
-
-func main() {
-    // Initialize the engine
-    eng := csvsql.NewEngine()
-
-    // Register CSV files
-    if err := eng.CreateTable("users", "data/users.csv"); err != nil {
-        panic(err)
-    }
-
-    // Build a query
-    query, err := csvsql.NewQuery().
-        Select("name", "age", "email").
-        From("users").
-        Where("age", ">", "25").
-        And(csvsql.NewQuery().Where("city", "=", "Shanghai")).
-        Build()
-    if err != nil {
-        panic(err)
-    }
-
-    // Execute and handle results
-    results, err := eng.ExecuteQuery(query)
-    if err != nil {
-        panic(err)
-    }
-
-    // Print results
-    for _, row := range results {
-        fmt.Println(row)
-    }
-}
+query, _ := csvsql.NewQuery().
+    Select("name", "age", "email").
+    From("users").
+    Where("age", ">", "25").
+    Build()
 ```
 
-## 📚 Advanced Usage
-
-### 🔄 JOIN Operations
-
+### Using Wildcards
 ```go
-// Inner Join Example
+// Select all columns from all involved tables
 query, _ := csvsql.NewQuery().
-    Select("users.name", "orders.product", "orders.amount").
+    Select("*").
     From("users").
     InnerJoin("orders").
     On("users", "id", "=", "orders", "user_id").
-    Where("orders.amount", ">", "100").
     Build()
 
-// Left Join Example
+// Select all columns from a specific table
+query, _ := csvsql.NewQuery().
+    Select("users.*", "orders.amount").
+    From("users").
+    InnerJoin("orders").
+    On("users", "id", "=", "orders", "user_id").
+    Build()
+```
+
+### Join Example
+```go
 query, _ := csvsql.NewQuery().
     Select("users.name", "orders.product").
     From("users").
@@ -91,8 +66,7 @@ query, _ := csvsql.NewQuery().
     Build()
 ```
 
-### 🎯 Custom Filtering
-
+### Custom Filtering
 ```go
 query, _ := csvsql.NewQuery().
     Select("name", "email", "registration_date").
@@ -112,8 +86,7 @@ query, _ := csvsql.NewQuery().
     Build()
 ```
 
-### 🔗 UNION Operations
-
+### UNION Operations
 ```go
 // Combine high-value and low-value orders
 highValue := csvsql.NewQuery().
@@ -134,6 +107,12 @@ query := highValue.Union(lowValue).Build()
 ```
 
 ## 🛠️ Supported Operations
+
+### Column Selection
+- Regular columns: `Select("name", "age")`
+- All columns: `Select("*")`
+- Table-specific columns: `Select("users.*")`
+- Mixed selection: `Select("users.*", "orders.amount")`
 
 ### Comparison Operators
 - `=` Equal
@@ -165,13 +144,6 @@ Supported data types for comparisons:
 - Float
 - Date (YYYY-MM-DD format)
 
-## ⚡ Performance Tips
-
-- Tables are loaded into memory for efficient querying
-- Use appropriate indexes for frequently queried columns
-- Consider memory usage when working with large CSV files
-- Optimize JOIN conditions for better performance
-- Use custom filtering functions for complex conditions
 
 ## 🤝 Contributing
 

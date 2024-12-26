@@ -44,6 +44,7 @@ func runExamples(eng *csvsql.Engine) {
 		{"JOIN with condition", example3},
 		{"Multiple conditions (AND)", example4},
 		{"UNION operation", example5},
+		{"Wildcard SELECT", example6},
 	}
 
 	for _, ex := range examples {
@@ -69,7 +70,7 @@ func example1() (*csvsql.Query, error) {
 	return csvsql.NewQuery().
 		Select("name", "age", "email", "city").
 		From("users").
-		Where("age", string(csvsql.GreaterThan), "25").
+		Where("age", ">", "25").
 		Build()
 }
 
@@ -106,7 +107,7 @@ func example3() (*csvsql.Query, error) {
 		Select("users.name", "users.email", "orders.product", "orders.amount").
 		From("users").
 		InnerJoin("orders").
-		On("users", "id", string(csvsql.Equal), "orders", "user_id").
+		On("users", "id", "=", "orders", "user_id").
 		Build()
 }
 
@@ -115,7 +116,7 @@ func example4() (*csvsql.Query, error) {
 	baseQuery := csvsql.NewQuery().
 		Select("name", "age", "email").
 		From("users").
-		Where("age", string(csvsql.GreaterThan), "30")
+		Where("age", ">", "30")
 
 	return baseQuery.
 		And(csvsql.NewQuery().Where("age", string(csvsql.LessThan), "50")).
@@ -128,17 +129,27 @@ func example5() (*csvsql.Query, error) {
 		Select("users.name", "orders.product", "orders.amount").
 		From("users").
 		InnerJoin("orders").
-		On("users", "id", string(csvsql.Equal), "orders", "user_id").
-		Where("orders.amount", string(csvsql.GreaterThan), "500")
+		On("users", "id", "=", "orders", "user_id").
+		Where("orders.amount", ">", "500")
 
 	lowValueOrders := csvsql.NewQuery().
 		Select("users.name", "orders.product", "orders.amount").
 		From("users").
 		InnerJoin("orders").
-		On("users", "id", string(csvsql.Equal), "orders", "user_id").
-		Where("orders.amount", string(csvsql.LessThan), "100")
+		On("users", "id", "", "orders", "user_id").
+		Where("orders.amount", "<", "100")
 
 	return highValueOrders.Union(lowValueOrders).Build()
+}
+
+// Example 6: Wildcard SELECT
+func example6() (*csvsql.Query, error) {
+	return csvsql.NewQuery().
+		Select("*").
+		From("users").
+		InnerJoin("orders").
+		On("users", "id", "=", "orders", "user_id").
+		Build()
 }
 
 func printResults(results [][]string) {
