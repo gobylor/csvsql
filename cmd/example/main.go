@@ -130,7 +130,7 @@ func example5() (*csvsql.Query, error) {
 		Select("users.name", "orders.product", "orders.amount").
 		From("users").
 		InnerJoin("orders").
-		On("users", "id", "", "orders", "user_id").
+		On("users", "id", "=", "orders", "user_id").
 		Where("orders.amount", "<", "100")
 
 	return highValueOrders.Union(lowValueOrders).Build()
