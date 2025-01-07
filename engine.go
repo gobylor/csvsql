@@ -414,6 +414,18 @@ func (e *Engine) handleUnionOperation(q *Query, results [][]string) ([][]string,
 		return results, nil
 	}
 
+	headers := results[0]
+	strippedHeaders := make([]string, len(headers))
+	for i, header := range headers {
+		parts := strings.Split(header, ".")
+		if len(parts) == 2 {
+			strippedHeaders[i] = parts[1]
+		} else {
+			strippedHeaders[i] = header
+		}
+	}
+	results[0] = strippedHeaders
+
 	baseColumns := len(results[0])
 	for _, unionQuery := range q.Union.Queries {
 		unionResults, err := e.executeQueryInternal(unionQuery)
